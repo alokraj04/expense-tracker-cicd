@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<div style="max-width:600px;margin:40px auto;background:white;border-radius:10px;overflow:hidden;">
+
+    <!-- Header -->
+    <div style="background:#4F46E5;padding:32px;text-align:center;">
+        <h1 style="color:white;margin:0;font-size:24px;" th:text="${appName}"></h1>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:32px;">
+        <h2 style="color:#333;">Welcome aboard! 🎉</h2>
+        <p style="color:#555;">Hi <strong th:text="${name}"></strong>,</p>
+        <p style="color:#555;">
+            Your account has been created successfully.
+            Start tracking your expenses and take control of your finances.
+        </p>
+
+        <div style="text-align:center;margin:32px 0;">
+            <a th:href="${loginUrl}"
+               style="background:#4F46E5;color:white;padding:14px 28px;
+                  border-radius:6px;text-decoration:none;font-weight:bold;">
+                Login to your account
+            </a>
+        </div>
+
+        <p style="color:#999;font-size:12px;">
+            If you didn't create this account, you can safely ignore this email.
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f9f9f9;padding:16px;text-align:center;">
+        <p style="color:#aaa;font-size:12px;margin:0;"
+           th:text="'© 2026 ' + ${appName} + '. All rights reserved.'"></p>
+    </div>
+
+</div>
+</body>
+</html>

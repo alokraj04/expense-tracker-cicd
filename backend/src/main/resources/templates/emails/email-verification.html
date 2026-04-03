@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<div style="max-width:600px;margin:40px auto;background:white;border-radius:10px;overflow:hidden;border:1px solid #e8e8e8;">
+
+    <div style="background:#4F46E5;padding:32px;text-align:center;">
+        <h1 style="color:white;margin:0;font-size:26px;" th:text="${appName}"></h1>
+    </div>
+
+    <div style="padding:36px;">
+        <h2 style="color:#1a1a1a;margin-top:0;">Verify your new email address</h2>
+        <p style="color:#555;line-height:1.6;">Hi <strong th:text="${name}"></strong>,</p>
+        <p style="color:#555;line-height:1.6;">
+            You requested to change your email address.
+            Click below to confirm — this link expires in <strong>24 hours</strong>.
+        </p>
+        <div style="text-align:center;margin:32px 0;">
+            <a th:href="${verifyUrl}"
+               style="background:#4F46E5;color:white;padding:14px 32px;
+                border-radius:6px;text-decoration:none;font-weight:bold;font-size:15px;">
+                Verify Email Address
+            </a>
+        </div>
+        <div style="background:#EBF8FF;border:1px solid #BEE3F8;border-radius:6px;padding:16px;">
+            <p style="color:#2C5282;font-size:13px;margin:0;line-height:1.6;">
+                If you didn't request this change, please contact support immediately
+                as someone may be trying to access your account.
+            </p>
+        </div>
+    </div>
+
+    <div style="background:#f9f9f9;padding:20px;text-align:center;border-top:1px solid #eee;">
+        <p style="color:#aaa;font-size:12px;margin:0;"
+           th:text="'© 2026 ' + ${appName} + '. All rights reserved.'"></p>
+    </div>
+
+</div>
+</body>
+</html>
