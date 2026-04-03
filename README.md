@@ -197,6 +197,13 @@ Expense Tracker is a secure and scalable full-stack application that helps users
   <img src="./screenshots/login.png" width="900"/>
 </p>
 
+
+## 🎥 Demo
+
+<p align="center">
+  <img src="./screenshots/expense-tracker.gif" width="900"/>
+</p>
+
 ---
 
 ## 🚀 Getting Started
