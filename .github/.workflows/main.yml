@@ -1,0 +1,246 @@
+name: Expense Tracker CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+  schedule:
+    - cron: "10 14 * * 1-5"   # 2:10 PM UTC, Monday to Friday
+
+# ── ECR repository names (change these to match your AWS ECR repo names) ──
+env:
+  BACKEND_ECR_REPOSITORY: expense-tracker-backend
+  FRONTEND_ECR_REPOSITORY: expense-tracker-frontend
+
+permissions:
+  contents: read
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 1 — Build & test the Spring Boot backend (Java 17, Maven, JAR)
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  Build_Backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven          # caches ~/.m2 between runs for speed
+
+      - name: Build JAR (skip tests here — tests run in next job)
+        working-directory: backend
+        run: mvn package -DskipTests -B
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: expense-tracker-jar
+          path: backend/target/*.jar
+          retention-days: 3
+
+      - name: Notify if build fails
+        if: failure()
+        run: echo "🚨 Backend build failed — check Maven logs above."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 2 — Build the React + Vite frontend
+# ─────────────────────────────────────────────────────────────────────────────
+  Build_Frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Vite app
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: expense-tracker-dist
+          path: frontend/dist/
+          retention-days: 3
+
+      - name: Notify if frontend build fails
+        if: failure()
+        run: echo "🚨 Frontend build failed — check npm logs above."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 3 — Run backend tests + Checkstyle (main branch only)
+# ─────────────────────────────────────────────────────────────────────────────
+  Testing:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    needs: Build_Backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Run unit tests (main branch only)
+        if: github.ref == 'refs/heads/main'
+        working-directory: backend
+        run: mvn test -B
+
+      - name: Checkstyle (main branch only)
+        if: github.ref == 'refs/heads/main'
+        working-directory: backend
+        run: mvn checkstyle:checkstyle -B
+
+      - name: Skip tests on feature branches
+        if: github.ref != 'refs/heads/main'
+        run: echo "ℹ️ Skipping tests on non-main branch."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 4 — Trivy filesystem security scan (runs in parallel with Testing)
+# ─────────────────────────────────────────────────────────────────────────────
+  Security_Scan:
+    name: Security Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: [Build_Backend, Build_Frontend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: json
+          exit-code: 0            # set to 1 if you want to FAIL on HIGH/CRITICAL
+          vuln-type: os,library
+          output: trivy-results.json
+
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-results
+          path: trivy-results.json
+          retention-days: 7
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 5 — Build Docker images and push to AWS ECR
+#          Only runs on main branch after ALL prior jobs pass
+# ─────────────────────────────────────────────────────────────────────────────
+  Build_And_Push_ECR:
+    name: Build & Push to ECR
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [Testing, Security_Scan]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── AWS Authentication ──────────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4   # v4 is current stable
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Backend Docker image ────────────────────────────────────────────
+      - name: Build and push backend image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -f backend/Dockerfile \
+            -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:latest \
+            ./backend
+
+          docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:latest
+
+          echo "✅ Backend image pushed: $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG"
+
+      # ── Frontend Docker image ───────────────────────────────────────────
+      - name: Build and push frontend image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -f frontend/Dockerfile.frontend \
+            -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:latest \
+            ./frontend
+
+          docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:latest
+
+          echo "✅ Frontend image pushed: $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG"
+
+      # ── Trivy scan on the built Docker images (post-build) ─────────────
+      - name: Scan backend image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_ECR_REPOSITORY }}:${{ github.sha }}
+          format: table
+          exit-code: 0            # set to 1 to fail pipeline on CRITICAL vulns
+          vuln-type: os,library
+
+      - name: Scan frontend image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_ECR_REPOSITORY }}:${{ github.sha }}
+          format: table
+          exit-code: 0
+          vuln-type: os,library
+
+      - name: Notify if ECR push fails
+        if: failure()
+        run: echo "🚨 ECR push job failed — check Docker build or AWS credentials."

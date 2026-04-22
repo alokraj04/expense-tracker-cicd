@@ -1,15 +1,23 @@
-# Env
+# Environment files
 .env
-
-# IDE
-.idea/
-
-# Node
-node_modules/
-dist/
+.env.*
 
 # Java
 target/
+*.jar
 
-# Uploads
-backend/uploads/
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# AWS / secrets
+*.pem
+*.key
+credentials
