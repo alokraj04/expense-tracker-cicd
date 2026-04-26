@@ -139,62 +139,62 @@ jobs:
           retention-days: 7
 
 
-  Build_And_Push_ECR:
-    name: Build & Push to ECR
-    runs-on: ubuntu-latest
-    environment: production
-    needs: [Testing, Security_Scan]
-    if: github.ref == 'refs/heads/main'
+  # Build_And_Push_ECR:
+  #   name: Build & Push to ECR
+  #   runs-on: ubuntu-latest
+  #   environment: production
+  #   needs: [Testing, Security_Scan]
+  #   if: github.ref == 'refs/heads/main'
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4   
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4   
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+  #     - name: Login to Amazon ECR
+  #       id: login-ecr
+  #       uses: aws-actions/amazon-ecr-login@v2
 
   
-      - name: Build and push backend image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build \
-            -f backend/Dockerfile \
-            -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG \
-            -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:latest \
-            ./backend
+  #     - name: Build and push backend image
+  #       env:
+  #         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+  #         IMAGE_TAG: ${{ github.sha }}
+  #       run: |
+  #         docker build \
+  #           -f backend/Dockerfile \
+  #           -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG \
+  #           -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:latest \
+  #           ./backend
 
-          docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:latest
+  #         docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG
+  #         docker push $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:latest
 
-          echo "Backend image pushed: $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG"
+  #         echo "Backend image pushed: $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Build and push frontend image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build \
-            -f frontend/Dockerfile \
-            -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG \
-            -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:latest \
-            ./frontend
+  #     - name: Build and push frontend image
+  #       env:
+  #         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+  #         IMAGE_TAG: ${{ github.sha }}
+  #       run: |
+  #         docker build \
+  #           -f frontend/Dockerfile \
+  #           -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG \
+  #           -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:latest \
+  #           ./frontend
 
-          docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:latest
+  #         docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG
+  #         docker push $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:latest
 
-          echo "Frontend image pushed: $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG"
+  #         echo "Frontend image pushed: $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG"
 
       - name: Scan backend image with Trivy
         uses: aquasecurity/trivy-action@master
@@ -214,6 +214,6 @@ jobs:
           exit-code: 0
           vuln-type: os,library
 
-      - name: Notify if ECR push fails
-        if: failure()
-        run: echo "🚨 ECR push job failed — check Docker build or AWS credentials."
+      # - name: Notify if ECR push fails
+      #   if: failure()
+      #   run: echo "🚨 ECR push job failed — check Docker build or AWS credentials."
